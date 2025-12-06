@@ -9,8 +9,6 @@
 # from sqlalchemy.ext.asyncio import AsyncSession
 # import asyncio
 
-
-
 from typing import Optional
 from fastapi import HTTPException, status
 from ..repositories.user_repository import UserRepository
