@@ -1,4 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, func
+from sqlalchemy.orm import backref, relationship
+from .user_role import user_role
 from .base_class import Base
 from services.security_service import pwd_context
 
@@ -13,6 +15,14 @@ class User(Base):
     is_superuser = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+    roles = relationship(
+        "Role",
+        secondary=user_role,
+        backref=backref("user", lazy=True),
+        lazy="subquery",
+    )
     
     def verify_password(self, plain_password: str) -> bool:
         return pwd_context.verify(plain_password, self.hashed_password)
