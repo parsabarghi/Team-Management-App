@@ -16,4 +16,9 @@ router = APIRouter()
 })
 async def register(user_in: UserCreate, user_service: UserService = Depends(get_user_service)) -> dict[str, UserBase]:
    """ Creating New User => public endpoint """
-   return user_service.create_user(user_in)
+   return await user_service.create_user(user_in)
+
+@router.get("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
+async def current_user(user_service: UserService = Depends(get_user_service)):
+   """ Get the cuurent user from db"""
+   return await user_service.get_current_user()

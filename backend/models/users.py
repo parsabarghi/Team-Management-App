@@ -1,13 +1,11 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, func
-from base_class import Base
-from passlib.context import CryptContext
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+from .base_class import Base
+from services.security_service import pwd_context
 
 class User(Base):
-    """we dont need __tablename__ because of our base_class implemention"""
+    """Notice: we dont need __tablename__ because of our base_class implemention ==> check it out before making any changes."""
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     email = Column(String, unique=True, index=True, nullable=False)
     username = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)

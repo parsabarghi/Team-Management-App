@@ -1,7 +1,7 @@
 from config import settings
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from ..models.base_class import Base
+from models.base_class import Base
 
 
 # pick a URL attribute from settings (handles common names)

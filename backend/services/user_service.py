@@ -11,9 +11,9 @@
 
 from typing import Optional
 from fastapi import HTTPException, status
-from ..repositories.user_repository import UserRepository
-from ..schemas.users_scheme import UserCreate, UserResponse
-from ..models.users import User
+from repositories.user_repository import UserRepository
+from schemas.users_scheme import UserCreate, UserResponse
+from models.users import User
 
 class UserService:
     def __init__(self, user_repository: UserRepository):
