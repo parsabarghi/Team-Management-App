@@ -24,9 +24,9 @@ class User(Base):
         lazy="subquery",
     )
     
-    def verify_password(self, plain_password: str) -> bool:
-        return pwd_context.verify(plain_password, self.hashed_password)
+    # def verify_password(self, plain_password: str) -> bool:
+    #     return pwd_context.verify(plain_password, self.hashed_password)
     
-    @staticmethod
-    def hash_password(password: str) -> str:
-        return pwd_context.hash(password)
+    # @staticmethod
+    # def hash_password(password: str) -> str:
+    #     return pwd_context.hash(password)

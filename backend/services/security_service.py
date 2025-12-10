@@ -1,3 +1,4 @@
+from datetime import timedelta
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -7,7 +8,9 @@ from models.users import User
 from repositories.user_repository import UserRepository
 from dependencies.repositories import get_user_repository
 from dependencies.services import get_user_service
-from typing import Annotated
+from typing import Annotated, Tuple
+from schemas.token import TokenData
+from config import settings
 
 
 # pwd_context = CryptContext(
@@ -16,10 +19,200 @@ from typing import Annotated
 # oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 class SecurityService:
+
     def __init__(self, user_repo: Annotated[UserRepository, Depends(get_user_repository)]):
         self.user_repo = user_repo
         self.pwd_context = CryptContext(
     schemes=["bcrypt"], deprecated="auto"
 )       
-        self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+        self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+    
+    def get_password_hash(self, password: str) -> str:
+        """Hash password using bcrypt"""
+        return self.pwd_context.hash(password)
+    
+    def verify_password(self, plain_password: str, hashed_password: str) -> bool:
+        """Hash passwordn cheking"""
+        return self.pwd_context.verify(plain_password, hashed_password)
+    
+    async def authenticate_user(self, email: str, password: str) -> User|None:
+        """
+        Authenticate user by email and password
+        Returns User object if successful, None otherwise
+        """
+        user = await self.user_repository.get_by_email(email)
+        if not user:
+            return None
+        if not self.verify_password(password, user.hashed_password):
+            return None
+        return user
         
+    async def get_current_user(self, token: str = Depends(oauth2_scheme)) -> User: 
+        """
+        Get current user from token
+        This is the core authentication dependency
+        """
+        credentials_exception = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+        try:
+            # Decode token
+            payload = self.decode_token(token)
+            
+            # Validate token type
+            token_type = payload.get("type")
+            if token_type != "access":
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token type",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            
+            # Get user ID from token
+            user_id: str = payload.get("sub")
+            if user_id is None:
+                raise credentials_exception
+            
+            # Get token data for validation
+            token_data = TokenData(user_id=user_id)
+            
+        except JWTError:
+            raise credentials_exception
+        
+        # Get user from database
+        user = await self.user_repository.get_by_id(int(token_data.user_id))
+        if user is None:
+            raise credentials_exception
+        
+        return user
+    
+    async def get_current_active_user(
+        self,
+        current_user: User = Depends(get_current_user)
+    ) -> User:
+        """
+        Get current active user
+        Checks if user is active
+        """
+        if not current_user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Inactive user"
+            )
+        return current_user
+    
+    async def get_current_active_admin(
+        self,
+        current_user: User = Depends(get_current_active_user)
+    ) -> User:
+        """
+        Get current active admin user
+        Checks if user has admin privileges
+        """
+        if current_user.role != "admin" and current_user.role != "superuser":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions"
+            )
+        return current_user
+    
+    async def get_current_superuser(
+        self,
+        current_user: User = Depends(get_current_active_user)
+    ) -> User:
+        """
+        Get current superuser
+        Checks if user is superuser
+        """
+        if current_user.role != "superuser":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Superuser privileges required"
+            )
+        return current_user
+    
+    # Login & Token Management
+    async def login_user(
+        self,
+        email: str,
+        password: str
+    ) -> Tuple[str, str]:
+        """
+        Handle user login
+        Returns (access_token, refresh_token)
+        """
+        user = await self.authenticate_user(email, password)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # Create tokens
+        access_token = self.create_access_token(
+            data={"sub": str(user.id)},
+            expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        )
+        
+        refresh_token = self.create_refresh_token(
+            data={"sub": str(user.id)}
+        )
+        
+        # Update last login timestamp
+        await self.user_repository.update_last_login(user.id)
+        
+        return access_token, refresh_token
+    
+    async def refresh_access_token(self, refresh_token: str) -> str:
+        """
+        Refresh access token using refresh token
+        Returns new access token
+        """
+        try:
+            # Decode refresh token
+            payload = self.decode_token(refresh_token)
+            
+            # Validate token type
+            if payload.get("type") != "refresh":
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token type for refresh",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            
+            # Get user ID
+            user_id = payload.get("sub")
+            if not user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid refresh token",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            
+            # Verify user exists
+            user = await self.user_repository.get_by_id(int(user_id))
+            if not user or not user.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="User not found or inactive",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            
+            # Create new access token
+            new_access_token = self.create_access_token(
+                data={"sub": str(user.id)},
+                expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+            )
+            
+            return new_access_token
+            
+        except JWTError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
