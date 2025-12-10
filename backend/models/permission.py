@@ -14,3 +14,4 @@ class Permission(Base):
         backref=backref("permissions", lazy=True),
         lazy="subquery",
     )
+    ### the roles have many-to-many relation, one role can have many permission, one permission can assigned to many roles.
