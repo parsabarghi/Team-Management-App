@@ -12,12 +12,14 @@
 from typing import Optional
 from fastapi import HTTPException, status
 from repositories.user_repository import UserRepository
+from services.security_service import SecurityService
 from schemas.users_scheme import UserCreate, UserResponse
 from models.users import User
 
 class UserService:
-    def __init__(self, user_repository: UserRepository):
+    def __init__(self, user_repository: UserRepository, security_service: SecurityService):
         self.user_repository = user_repository
+        self.security_service = security_service
     
     async def create_user(self, user_in: UserCreate) -> UserResponse:
         """Business logic: Create user with validation"""
@@ -37,8 +39,14 @@ class UserService:
                 detail="Username already taken"
             )
         
-        # Create user (business logic orchestrates the repository call)
-        user = await self.user_repository.create_user(user_in)
+        # Hashing
+        hashed_password = self.security_service.get_password_hash(user_in.password)
+
+        
+        user = await self.user_repository.create_user_with_hashed_password(
+            user_in=user_in,
+            hashed_password=hashed_password  
+        )
         return UserResponse.model_validate(user)
     
     async def get_user_by_id(self, user_id: int) -> Optional[UserResponse]:

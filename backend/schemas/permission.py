@@ -35,7 +35,6 @@ class PermissionResponse(PermissionBase):
     updated_at: datetime
     
     class Config:
-        orm_mode = True
         from_attributes = True
 
 class RoleBase(BaseModel):
@@ -63,5 +62,4 @@ class RoleResponse(RoleBase):
     updated_at: datetime
     
     class Config:
-        orm_mode = True
         from_attributes = True

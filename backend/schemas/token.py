@@ -18,5 +18,5 @@ class TokenPayload(BaseModel):
 class TokenData(BaseModel):
     """Token data for internal use"""
     user_id: str
-    email: str
-    scopes: list[str] = []
+    # email: str
+    # scopes: list[str] = []

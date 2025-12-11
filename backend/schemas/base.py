@@ -9,5 +9,4 @@ class BaseSchema(BaseModel):
     updated_at: Optional[datetime] = None
     
     class Config:
-        orm_mode = True
         from_attributes = True  # For SQLAlchemy 2.0 compatibility

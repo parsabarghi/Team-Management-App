@@ -1,9 +1,10 @@
 # from fastapi import Depends
 # from sqlalchemy.orm import Session
 # from db.session import get_db
+from datetime import datetime, timezone
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from .base_repository import BaseRepository
 from models.users import User
 from schemas.users_scheme import UserCreate, UserUpdate
@@ -22,27 +23,36 @@ class UserRepository(BaseRepository[User, UserCreate]):
         result = await self.db.execute(select(User).where(User.username == username))
         return result.scalars().first()
     
-    async def create_user(self, user_in: UserCreate) -> User:
-        """Create a new user with hashed password"""
-        # Hash the password before saving
-        hashed_password = User.hash_password(user_in.password)
-        
+    async def create_user_with_hashed_password(
+        self, 
+        user_in: UserCreate, 
+        hashed_password: str
+    ) -> User:
         db_user = User(
             email=user_in.email,
             username=user_in.username,
-            hashed_password=hashed_password,
-            is_active=user_in.is_active if hasattr(user_in, 'is_active') else True,
-            is_superuser=user_in.is_superuser if hasattr(user_in, 'is_superuser') else False
+            hashed_password=hashed_password, 
+            is_active=getattr(user_in, 'is_active', True),
+            is_superuser=getattr(user_in, 'is_superuser', False)
         )
-        
         self.db.add(db_user)
         await self.db.commit()
         await self.db.refresh(db_user)
         return db_user
     
+    # async def update_last_login(self, user_id:int):
+    #     """Update user's last login timestamp"""
+    #     query = (
+    #         update(User)
+    #         .where(User.id == user_id)
+    #         .values(last_login=datetime.now(timezone.utc))
+    #     )
+    #     await self.db.execute(query)
+    #     await self.db.commit()
+    
     async def update_user(self, user: User, user_in: UserUpdate) -> User:
         """Update user with optional password hashing"""
-        update_data = user_in.dict(exclude_unset=True)
+        update_data = user_in.model_dump(exclude_unset=True)
         
         if "password" in update_data:
             update_data["hashed_password"] = User.hash_password(update_data.pop("password"))

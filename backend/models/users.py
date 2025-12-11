@@ -1,21 +1,23 @@
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, func
 from sqlalchemy.orm import backref, relationship
 from .user_role import user_role
 from .base_class import Base
-from services.security_service import pwd_context
+# from services.security_service import pwd_context
 
 class User(Base):
     """Notice: we dont need __tablename__ because of our base_class implemention ==> check it out before making any changes."""
     
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     username = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), 
+                        onupdate=lambda: datetime.now(timezone.utc))
+    # last_login = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     roles = relationship(
         "Role",

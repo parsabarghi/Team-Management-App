@@ -22,11 +22,11 @@ class UserBase(BaseSchema):
     """Base user schema"""
     email: EmailStr
     username: str = Field(..., min_length=3, max_length=50)
-    full_name: Optional[str] = None
-    is_active: bool = True
-    is_superuser: bool = False
-    role: Role = Role.USER
-    permissions: List[Permission] = []
+    # full_name: Optional[str] = None
+    # is_active: bool = True
+    # is_superuser: bool = False
+    # role: Role = Role.USER
+    # permissions: List[Permission] = []
 
 class UserCreate(UserBase):
     """User creation schema"""
@@ -66,7 +66,7 @@ class UserResponse(UserBase):
 
 class UserProfile(UserResponse):
     """User profile schema with additional info"""
-    last_login: Optional[datetime] = None
+    # last_login: Optional[datetime] = None
     login_count: int = 0
 
 class UserWithToken(UserResponse):

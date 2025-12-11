@@ -5,6 +5,7 @@ load_dotenv()
 
 class Settings:
     PROJECT_NAME: str = "Team Note App"
+    TOKEN_ISSUER: str = "Team Management App"
     PROJECT_VERSION: str = "1.0.0"
     ALGORITHM : str = os.getenv("ALGORITHM")
     SECRET_KEY: str = os.getenv("SECRET_KEY")
